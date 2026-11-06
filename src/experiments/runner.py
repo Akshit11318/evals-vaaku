@@ -75,47 +75,66 @@ def run_experiment(
                         )
                 continue
             try:
-                for sample in samples:
-                    for condition in conditions:
+                batch_size = max(1, int(config.batch_size))
+                for condition in conditions:
+                    pending = []
+                    for sample in samples:
                         if store.has_prediction(
                             experiment_id, sample.sample_id, model_id, condition["condition"]
                         ):
                             done += 1
                             store.set_runtime(experiment_id, progress_current=done)
                             continue
+                        pending.append(sample)
+                    for start in range(0, len(pending), batch_size):
+                        chunk = pending[start : start + batch_size]
                         store.set_runtime(
                             experiment_id,
                             current_model=model_id,
-                            current_sample=f"{sample.sample_id} · {condition['condition']}",
+                            current_sample=(
+                                f"{chunk[0].sample_id} · {condition['condition']} · x{len(chunk)}"
+                            ),
                         )
                         try:
-                            _score_one(
+                            _score_batch(
                                 store,
                                 settings,
                                 experiment_id,
                                 adapter,
-                                sample,
+                                chunk,
                                 condition,
                                 config,
                             )
-                        except Exception as exc:
+                        except Exception:
                             LOGGER.exception(
-                                "sample failed experiment=%s model=%s sample=%s",
+                                "batch failed experiment=%s model=%s size=%s",
                                 experiment_id,
                                 model_id,
-                                sample.sample_id,
+                                len(chunk),
                             )
-                            _record_failure(
-                                store,
-                                experiment_id,
-                                sample,
-                                model_id,
-                                condition,
-                                scrub(str(exc)),
-                                settings,
-                            )
-                            failures += 1
-                        done += 1
+                            for sample in chunk:
+                                try:
+                                    _score_one(
+                                        store,
+                                        settings,
+                                        experiment_id,
+                                        adapter,
+                                        sample,
+                                        condition,
+                                        config,
+                                    )
+                                except Exception as exc:
+                                    _record_failure(
+                                        store,
+                                        experiment_id,
+                                        sample,
+                                        model_id,
+                                        condition,
+                                        scrub(str(exc)),
+                                        settings,
+                                    )
+                                    failures += 1
+                        done += len(chunk)
                         store.set_runtime(experiment_id, progress_current=done)
             finally:
                 adapter.unload()
@@ -166,6 +185,64 @@ def _validate_samples(samples) -> list[str]:
             problems.append(f"{sample.sample_id}: empty reference")
         problems.extend(validate_audio_file(Path(sample.audio_path), sample.sample_id))
     return problems
+
+
+def _score_batch(store, settings, experiment_id, adapter, samples, condition, config) -> None:
+    prepared = []
+    for sample in samples:
+        seed = stable_seed(config.seed, sample.sample_id, condition["condition"])
+        dest = (
+            settings.output_dir
+            / "audio"
+            / experiment_id
+            / f"{sample.sample_id}_{condition['condition']}.wav"
+        )
+        audio_path = materialize(
+            Path(sample.audio_path),
+            dest,
+            condition["parameters"],
+            seed,
+            settings.sample_rate,
+        )
+        audio, sample_rate, duration = load_mono(audio_path, settings.sample_rate)
+        prepared.append((sample, audio, sample_rate, duration, audio_path, seed))
+    language = prepared[0][0].language
+    audios = [item[1] for item in prepared]
+    if hasattr(adapter, "transcribe_batch"):
+        results = adapter.transcribe_batch(audios, prepared[0][2], language)
+    else:
+        results = [adapter.transcribe(audio, prepared[0][2], language) for audio in audios]
+    if len(results) != len(prepared):
+        raise RuntimeError(
+            f"{adapter.spec.model_id} returned {len(results)} transcripts for {len(prepared)} clips."
+        )
+    for (sample, _audio, _sr, duration, audio_path, seed), result in zip(
+        prepared, results, strict=True
+    ):
+        scores = score_pair(sample.reference, result.text)
+        entities = evaluate_entities(sample.reference, result.text, sample.metadata)
+        rtf = None if duration <= 0 else result.inference_time_s / duration
+        store.insert_prediction(
+            _row(
+                experiment_id,
+                sample,
+                adapter.spec.model_id,
+                result.model_version,
+                result.device,
+                result.text,
+                condition,
+                seed,
+                str(audio_path),
+                scores,
+                entities,
+                result.inference_time_s,
+                duration,
+                rtf,
+                result.peak_gpu_mb,
+                None,
+                result.notes,
+            )
+        )
 
 
 def _score_one(store, settings, experiment_id, adapter, sample, condition, config) -> None:

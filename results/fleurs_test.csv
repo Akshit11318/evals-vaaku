@@ -1,0 +1,13 @@
+dataset,split,language,condition,clips,reference_words,model,checkpoint,role,wer,cer,ser,substitutions,deletions,insertions,wer_vs_base_pp,cer_vs_base_pp,wer_reduction_vs_base,device
+google/fleurs,test,hi,clean,418,10326,whisper-small,openai/whisper-small,base,0.663665,0.370390,1.000000,4975,743,1135,0,0,0,cuda
+google/fleurs,test,hi,clean,418,10326,vaakku,rudra11/vaakku-whisper-small,lora on whisper-small,0.407418,0.172926,1.000000,3535,416,256,-0.256247,-0.197464,0.386109,cuda
+google/fleurs,test,hi,clean,418,10326,mms,facebook/mms-1b-all,independent system,0.196979,0.067637,0.968900,1711,195,128,-0.466686,-0.302753,0.703195,cuda
+google/fleurs,test,te,clean,472,7894,whisper-small,openai/whisper-small,base,1.227895,1.131756,1.000000,2598,5284,1811,0,0,0,cuda
+google/fleurs,test,te,clean,472,7894,vaakku,rudra11/vaakku-whisper-small,lora on whisper-small,0.698885,0.314245,1.000000,3840,1486,191,-0.529010,-0.817511,0.430827,cuda
+google/fleurs,test,te,clean,472,7894,mms,facebook/mms-1b-all,independent system,0.378769,0.089790,0.985169,2505,316,169,-0.849126,-1.041966,0.691530,cuda
+google/fleurs,test,ta,clean,591,9836,whisper-small,openai/whisper-small,base,0.730785,0.263730,1.000000,5626,522,1040,0,0,0,cuda
+google/fleurs,test,ta,clean,591,9836,vaakku,rudra11/vaakku-whisper-small,lora on whisper-small,0.567202,0.166933,0.998308,4571,676,332,-0.163583,-0.096797,0.223846,cuda
+google/fleurs,test,ta,clean,591,9836,mms,facebook/mms-1b-all,independent system,0.414803,0.114896,0.994924,3121,310,649,-0.315982,-0.148834,0.432387,cuda
+google/fleurs,test,kn,clean,838,13310,whisper-small,openai/whisper-small,base,1.000676,1.001792,1.000000,856,12454,9,0,0,0,cuda
+google/fleurs,test,kn,clean,838,13310,vaakku,rudra11/vaakku-whisper-small,lora on whisper-small,0.641247,0.251107,0.996420,5786,2355,394,-0.359429,-0.750685,0.359186,cuda
+google/fleurs,test,kn,clean,838,13310,mms,facebook/mms-1b-all,independent system,0.282419,0.046933,0.951074,2963,490,306,-0.718257,-0.954859,0.717772,cuda

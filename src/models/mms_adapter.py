@@ -81,6 +81,61 @@ class MmsAdapter:
             notes=self.load_note,
         )
 
+    def transcribe_batch(self, audios, sample_rate: int, language: str) -> list[Transcription]:
+        if len(audios) == 1:
+            return [self.transcribe(audios[0], sample_rate, language)]
+        if language not in self.spec.languages:
+            raise UnsupportedLanguage(
+                f"{self.spec.display_name} does not support '{language}'. "
+                "No substitute model was used."
+            )
+        self.ensure_loaded()
+        import torch
+
+        code = MMS_CODES[language]
+        if self.loaded_lang != code:
+            self.processor.tokenizer.set_target_lang(code)
+            self.model.load_adapter(code)
+            self.model.to(dtype=self.dtype)
+            self.loaded_lang = code
+        waves = [_resample(audio, sample_rate) for audio in audios]
+        # Three language jobs share the 24 GB card. Keep each MMS batch large
+        # enough to fill the GPU without crowding the other two jobs out.
+        results: list[Transcription] = []
+        step = 16
+        for start in range(0, len(waves), step):
+            chunk = waves[start : start + step]
+            inputs = self.processor(chunk, sampling_rate=16_000, return_tensors="pt", padding=True)
+            input_values = inputs.input_values.to(self.device, dtype=self.dtype)
+            attention = getattr(inputs, "attention_mask", None)
+            if attention is not None:
+                attention = attention.to(self.device)
+            started = time.perf_counter()
+            with torch.inference_mode():
+                if self.device == "cuda":
+                    torch.cuda.reset_peak_memory_stats()
+                forward = {"input_values": input_values}
+                if attention is not None:
+                    forward["attention_mask"] = attention
+                logits = self.model(**forward).logits
+                if self.device == "cuda":
+                    self.peak_gpu_mb = torch.cuda.max_memory_allocated() / (1024 * 1024)
+            elapsed = (time.perf_counter() - started) / len(chunk)
+            ids = torch.argmax(logits, dim=-1)
+            texts = self.processor.batch_decode(ids)
+            results.extend(
+                Transcription(
+                    text=text.strip(),
+                    inference_time_s=elapsed,
+                    device=self.device,
+                    peak_gpu_mb=self.peak_gpu_mb,
+                    model_version=self.model_version,
+                    notes=self.load_note,
+                )
+                for text in texts
+            )
+        return results
+
     def unload(self) -> None:
         self.model = None
         self.processor = None

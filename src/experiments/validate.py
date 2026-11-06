@@ -66,8 +66,8 @@ def validate_config(config: ExperimentConfig, settings: Settings) -> list[str]:
         bad_speed = [rate for rate in config.speed_factors if rate not in ALLOWED_SPEED]
         if not config.speed_factors or bad_speed:
             errors.append("Speed uses 0.8x and 1.2x only.")
-    if config.batch_size < 1 or config.batch_size > 8:
-        errors.append("Batch size must be from 1 to 8.")
+    if config.batch_size < 1 or config.batch_size > 64:
+        errors.append("Batch size must be from 1 to 64.")
     if config.volume_db < -24 or config.volume_db > 12:
         errors.append("Volume must be between -24 dB and 12 dB.")
     if config.reverb_decay < 0.1 or config.reverb_decay > 0.9:

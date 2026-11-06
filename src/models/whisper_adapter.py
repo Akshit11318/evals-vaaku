@@ -84,6 +84,43 @@ class WhisperAdapter:
             notes=self.load_note,
         )
 
+    def transcribe_batch(self, audios, sample_rate: int, language: str) -> list[Transcription]:
+        if len(audios) == 1:
+            return [self.transcribe(audios[0], sample_rate, language)]
+        self._require_language(language)
+        self.ensure_loaded()
+        import torch
+
+        waves = [_resample(audio, sample_rate) for audio in audios]
+        language_name = WHISPER_NAMES.get(language, language)
+        inputs = self.processor(waves, sampling_rate=16_000, return_tensors="pt")
+        features = inputs.input_features.to(self.device, dtype=self.dtype)
+        prompt = self.processor.get_decoder_prompt_ids(language=language_name, task="transcribe")
+        started = time.perf_counter()
+        with torch.inference_mode():
+            if self.device == "cuda":
+                torch.cuda.reset_peak_memory_stats()
+            generated = self.model.generate(
+                input_features=features,
+                forced_decoder_ids=prompt,
+                max_new_tokens=225,
+            )
+            if self.device == "cuda":
+                self.peak_gpu_mb = torch.cuda.max_memory_allocated() / (1024 * 1024)
+        elapsed = (time.perf_counter() - started) / len(waves)
+        texts = self.processor.batch_decode(generated, skip_special_tokens=True)
+        return [
+            Transcription(
+                text=text.strip(),
+                inference_time_s=elapsed,
+                device=self.device,
+                peak_gpu_mb=self.peak_gpu_mb,
+                model_version=self.model_version,
+                notes=self.load_note,
+            )
+            for text in texts
+        ]
+
     def unload(self) -> None:
         self.model = None
         self.processor = None
