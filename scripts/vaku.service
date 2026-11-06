@@ -1,0 +1,17 @@
+[Unit]
+Description=Vaaku Indic speech bench
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/vaku
+EnvironmentFile=/home/ubuntu/vaku/.env
+Environment=TOKENIZERS_PARALLELISM=false
+Environment=HF_HUB_DISABLE_TELEMETRY=1
+ExecStart=/home/ubuntu/vaku/.venv/bin/python -m uvicorn app.server:app --host 127.0.0.1 --port 8787
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

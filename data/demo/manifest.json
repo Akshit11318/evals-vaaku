@@ -1,0 +1,32 @@
+{
+  "name": "Pipeline demo",
+  "license": "Synthetic English from espeak-ng (GPL-3.0). Pipeline check only.",
+  "provenance": "espeak-ng en-us, generated locally",
+  "samples": [
+    {
+      "sample_id": "en_meeting",
+      "audio_path": "audio/en_meeting.wav",
+      "reference": "the meeting is at 10:30 and the phone number is 9876543210",
+      "language": "en",
+      "speaker_id": "espeak"
+    },
+    {
+      "sample_id": "en_name",
+      "audio_path": "audio/en_name.wav",
+      "reference": "hello my name is ram and the address is 12 park street",
+      "language": "en",
+      "speaker_id": "espeak",
+      "entities": [
+        {"type": "name", "text": "ram"},
+        {"type": "address", "text": "12 park street"}
+      ]
+    },
+    {
+      "sample_id": "en_time",
+      "audio_path": "audio/en_time.wav",
+      "reference": "please call tomorrow at 9:00",
+      "language": "en",
+      "speaker_id": "espeak"
+    }
+  ]
+}

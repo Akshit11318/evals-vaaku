@@ -1,0 +1,29 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Install CPU PyTorch
+        run: pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Lint
+        run: ruff check src config app tests && ruff format --check src config app tests
+      - name: Test
+        run: pytest -q
+        env:
+          DASHBOARD_AUTH_DISABLED: "1"
+      - name: Import the bench
+        run: python -c "from app.server import app; from src.models.registry import MODEL_SPECS; assert 'whisper-medium' in MODEL_SPECS"

@@ -1,0 +1,3 @@
+sample_id,audio_path,reference,language,speaker_id
+utt1,clips/utt1.wav,नमस्ते,hi,speaker-a
+utt2,clips/utt2.wav,hello world,en,speaker-b
